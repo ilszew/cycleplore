@@ -6,7 +6,7 @@ struct ContentView: View {
             VStack(spacing: 20) {
                 
                 
-                NavigationLink(destination: buildingTrackOptions()){
+                NavigationLink(destination: BuildingTrackOptions()){
                     MenuButton(title: "New adventure")
                 }
                 
