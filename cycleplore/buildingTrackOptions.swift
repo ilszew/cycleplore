@@ -15,12 +15,18 @@ struct BuildingTrackOptions: View {
     @State private var address: String = ""
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             Form {
                 Section(header: Text("Miejsce startowe").font(.headline)) {
-                    TextField("Wpisz adres", text: $address, onCommit: fetchCoordinates)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-
+                    HStack {
+                        TextField("Wpisz adres", text: $address)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                        
+                        Button(action: fetchCoordinates) {
+                            Image(systemName: "magnifyingglass")
+                        }
+                    }
+                    
                     Button(action: { showFullScreenMap = true }) {
                         HStack {
                             Text(startLocation == nil ? "Wybierz miejsce" : "Zmień lokalizację")
@@ -87,12 +93,17 @@ struct BuildingTrackOptions: View {
 
     /// Pobiera współrzędne dla wpisanego adresu
     private func fetchCoordinates() {
-        let geocoder = CLGeocoder()
-        geocoder.geocodeAddressString(address) { placemarks, error in
-            if let location = placemarks?.first?.location {
-                startLocation = MapLocation(coordinate: location.coordinate)
-            } else {
-                print("Nie udało się znaleźć współrzędnych dla adresu.")
+        Task {
+            let geocoder = CLGeocoder()
+            do {
+                let placemarks = try await geocoder.geocodeAddressString(address)
+                if let location = placemarks.first?.location {
+                    startLocation = MapLocation(coordinate: location.coordinate)
+                } else {
+                    print("Nie udało się znaleźć współrzędnych dla adresu.")
+                }
+            } catch {
+                print("Błąd geokodowania: \(error.localizedDescription)")
             }
         }
     }
@@ -105,26 +116,20 @@ struct FullScreenMapView: View {
     @Environment(\.dismiss) var dismiss
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             Map(position: $cameraPosition, interactionModes: [.pan, .zoom]) {
                 if let location = startLocation {
                     Marker("Start", coordinate: location.coordinate)
                 }
             }
             .mapControlVisibility(.visible)
-            .onTapGesture { location in
+            .gesture(DragGesture(minimumDistance: 0).onEnded { value in
                 Task {
-                    if let coordinate = await convertPointToCoordinate(location) {
+                    if let coordinate = await getCenterCoordinate() {
                         startLocation = MapLocation(coordinate: coordinate)
-                        cameraPosition = .region(
-                            MKCoordinateRegion(
-                                center: coordinate,
-                                span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
-                            )
-                        )
                     }
                 }
-            }
+            })
             .navigationTitle("Wybierz miejsce")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
@@ -136,23 +141,18 @@ struct FullScreenMapView: View {
         }
     }
 
-    /// Konwertuje kliknięty punkt na mapie na współrzędne geograficzne
-    private func convertPointToCoordinate(_ location: CGPoint) async -> CLLocationCoordinate2D? {
+    /// Pobiera współrzędne z centrum mapy
+    private func getCenterCoordinate() async -> CLLocationCoordinate2D? {
         return await withCheckedContinuation { continuation in
             DispatchQueue.main.async {
-                if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                   let window = scene.windows.first,
-                   let rootViewController = window.rootViewController {
-                    let mapView = MKMapView()
-                    mapView.frame = rootViewController.view.bounds
-                    rootViewController.view.addSubview(mapView)
+                let mapView = MKMapView()
+                mapView.region = MKCoordinateRegion(
+                    center: CLLocationCoordinate2D(latitude: 52.2297, longitude: 21.0122),
+                    span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
+                )
 
-                    let point = mapView.convert(location, toCoordinateFrom: rootViewController.view)
-                    rootViewController.view.subviews.forEach { $0.removeFromSuperview() }
-                    continuation.resume(returning: point)
-                } else {
-                    continuation.resume(returning: nil)
-                }
+                let coordinate = mapView.centerCoordinate
+                continuation.resume(returning: coordinate)
             }
         }
     }
