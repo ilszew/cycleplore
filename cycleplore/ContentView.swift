@@ -1,16 +1,16 @@
 import SwiftUI
+import UIKit
+import UniformTypeIdentifiers
 
 struct ContentView: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 20) {
-                
-                
                 NavigationLink(destination: BuildingTrackOptions()){
                     MenuButton(title: "New adventure")
                 }
                 
-                NavigationLink(destination: previousTracks()) {
+                NavigationLink(destination: DownloadsViewControllerWrapper()) {
                     MenuButton(title: "Previous adventures")
                 }
                 
@@ -41,14 +41,35 @@ struct MenuButton: View {
     }
 }
 
-struct previousTracks: View {
-    var body: some View {
-        VStack {
-            Text("Ekran 2")
-                .font(.largeTitle)
-                .foregroundColor(.green)
-        }
-        .navigationTitle("Ekran 2")
+struct DownloadsViewControllerWrapper: UIViewControllerRepresentable {
+    func makeUIViewController(context: Context) -> ViewController {
+        return ViewController()
+    }
+    
+    func updateUIViewController(_ uiViewController: ViewController, context: Context) {}
+}
+
+class ViewController: UIViewController {
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        openDownloadsFolder()
+    }
+    
+    func openDownloadsFolder() {
+        let documentPicker = UIDocumentPickerViewController(forOpeningContentTypes: [UTType.data])
+        documentPicker.delegate = self
+        documentPicker.allowsMultipleSelection = true
+        present(documentPicker, animated: true, completion: nil)
+    }
+}
+
+extension ViewController: UIDocumentPickerDelegate {
+    func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+        print("Selected files: \(urls)")
+    }
+    
+    func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+        print("Document picker was cancelled")
     }
 }
 
@@ -62,5 +83,3 @@ struct settings: View {
         .navigationTitle("Ekran 3")
     }
 }
-
-
