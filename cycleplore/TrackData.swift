@@ -1,5 +1,7 @@
 import SwiftUI
 import MapKit
+import UniformTypeIdentifiers
+import UIKit
 
 class TrackData: ObservableObject {
     @Published var startLocation: CLLocationCoordinate2D? = nil
@@ -24,6 +26,20 @@ class TrackData: ObservableObject {
         let destination = CLLocationCoordinate2D(latitude: destLat.toDegrees(), longitude: destLon.toDegrees())
         
         route = [start, destination]
+    }
+    
+    func openDownloadsFolder() {
+        guard let rootViewController = UIApplication.shared.connectedScenes
+                .compactMap({ $0 as? UIWindowScene })
+                .flatMap({ $0.windows })
+                .first(where: { $0.isKeyWindow })?.rootViewController else {
+            return
+        }
+        
+        let documentPicker = UIDocumentPickerViewController(forOpeningContentTypes: [UTType.data])
+        documentPicker.delegate = rootViewController as? UIDocumentPickerDelegate
+        documentPicker.allowsMultipleSelection = true
+        rootViewController.present(documentPicker, animated: true, completion: nil)
     }
 }
 
