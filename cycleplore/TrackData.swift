@@ -6,40 +6,27 @@ import UIKit
 class TrackData: ObservableObject {
     @Published var startLocation: CLLocationCoordinate2D? = nil
     @Published var trackLength: Double = 20.0
-    @Published var days: Int = 1
-    @Published var fitnessLevel: Int = 1
     @Published var route: [CLLocationCoordinate2D] = []
     
-    func generateRandomDestination() {
+    func findNearestTrainStation() {
         guard let start = startLocation else { return }
         
-        let earthRadius: Double = 6371.0 // km
-        let distanceRatio = trackLength / earthRadius
-        let randomBearing = Double.random(in: 0...(2 * .pi))
+        let request = MKLocalSearch.Request()
+        request.naturalLanguageQuery = "stacja kolejowa"
+        request.region = MKCoordinateRegion(center: start, latitudinalMeters: trackLength * 1000, longitudinalMeters: trackLength * 1000)
         
-        let startLat = start.latitude.toRadians()
-        let startLon = start.longitude.toRadians()
-        
-        let destLat = asin(sin(startLat) * cos(distanceRatio) + cos(startLat) * sin(distanceRatio) * cos(randomBearing))
-        let destLon = startLon + atan2(sin(randomBearing) * sin(distanceRatio) * cos(startLat), cos(distanceRatio) - sin(startLat) * sin(destLat))
-        
-        let destination = CLLocationCoordinate2D(latitude: destLat.toDegrees(), longitude: destLon.toDegrees())
-        
-        route = [start, destination]
-    }
-    
-    func openDownloadsFolder() {
-        guard let rootViewController = UIApplication.shared.connectedScenes
-                .compactMap({ $0 as? UIWindowScene })
-                .flatMap({ $0.windows })
-                .first(where: { $0.isKeyWindow })?.rootViewController else {
-            return
+        let search = MKLocalSearch(request: request)
+        search.start { response, error in
+            guard let response = response, let station = response.mapItems.first else {
+                print("Brak stacji kolejowej w pobliżu.")
+                return
+            }
+            
+            DispatchQueue.main.async {
+                self.route = [start, station.placemark.coordinate]
+                self.saveGPXFile()
+            }
         }
-        
-        let documentPicker = UIDocumentPickerViewController(forOpeningContentTypes: [UTType.data])
-        documentPicker.delegate = rootViewController as? UIDocumentPickerDelegate
-        documentPicker.allowsMultipleSelection = true
-        rootViewController.present(documentPicker, animated: true, completion: nil)
     }
     
     func saveGPXFile() {
@@ -49,6 +36,7 @@ class TrackData: ObservableObject {
         
         do {
             try gpxContent.write(to: fileURL, atomically: true, encoding: .utf8)
+            print("GPX file saved at: \(fileURL.path)")
             shareFile(fileURL)
         } catch {
             print("Error saving GPX file: \(error)")
@@ -77,15 +65,5 @@ class TrackData: ObservableObject {
             return
         }
         rootViewController.present(activityViewController, animated: true, completion: nil)
-    }
-}
-
-extension Double {
-    func toRadians() -> Double {
-        return self * .pi / 180.0
-    }
-    
-    func toDegrees() -> Double {
-        return self * 180.0 / .pi
     }
 }
