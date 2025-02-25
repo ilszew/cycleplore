@@ -13,6 +13,7 @@ class TrackData: ObservableObject {
         
         let request = MKLocalSearch.Request()
         request.naturalLanguageQuery = "stacja kolejowa"
+        request.resultTypes = .pointOfInterest
         request.region = MKCoordinateRegion(center: start, latitudinalMeters: trackLength * 1000, longitudinalMeters: trackLength * 1000)
         
         let search = MKLocalSearch(request: request)
@@ -32,7 +33,9 @@ class TrackData: ObservableObject {
     func saveGPXFile() {
         let gpxContent = generateGPX()
         let fileName = "track.gpx"
-        let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
+        let fileManager = FileManager.default
+        let directory = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let fileURL = directory.appendingPathComponent(fileName)
         
         do {
             try gpxContent.write(to: fileURL, atomically: true, encoding: .utf8)
@@ -58,6 +61,8 @@ class TrackData: ObservableObject {
     
     private func shareFile(_ fileURL: URL) {
         let activityViewController = UIActivityViewController(activityItems: [fileURL], applicationActivities: nil)
+        activityViewController.excludedActivityTypes = [.addToReadingList, .assignToContact]
+        
         guard let rootViewController = UIApplication.shared.connectedScenes
                 .compactMap({ $0 as? UIWindowScene })
                 .flatMap({ $0.windows })

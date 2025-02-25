@@ -7,6 +7,7 @@ struct MapLocation: Identifiable {
 }
 
 struct BuildingTrackOptions: View {
+    @StateObject private var trackData = TrackData()
     @State private var startLocation: MapLocation?
     @State private var trackLength: Double = 20.0
     @State private var days: Int = 1
@@ -131,13 +132,11 @@ struct BuildingTrackOptions: View {
     }
 
     private func handleSubmission() {
-        print("""
-        Start: \(startLocation?.coordinate.latitude ?? 0),
-        \(startLocation?.coordinate.longitude ?? 0)
-        Długość: \(Int(trackLength)) km
-        Dni: \(days)
-        Poziom: \(fitnessLevel)
-        """)
+        guard let startCoordinate = startLocation?.coordinate else { return }
+        
+        trackData.startLocation = startCoordinate
+        trackData.trackLength = trackLength
+        trackData.findNearestTrainStation()
     }
 }
 
@@ -174,11 +173,10 @@ struct FullScreenMapView: View {
                 MapCompass()
                 MapScaleView()
             }
-            // 🟢 Kliknięcie dodaje pinezkę i zamyka mapę
             .onTapGesture { tapLocation in
                 if let coordinate = proxy.convert(tapLocation, from: .local) {
                     startLocation = MapLocation(coordinate: coordinate)
-                    dismiss() // Automatyczne zamknięcie
+                    dismiss()
                 }
             }
             .toolbar {
